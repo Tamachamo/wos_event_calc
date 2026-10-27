@@ -1,4 +1,4 @@
-name = "wos-ecent-calc"
+name = "wos-event-calc"
 pages_build_output_dir = "."
 compatibility_date = "2024-02-27"
 
