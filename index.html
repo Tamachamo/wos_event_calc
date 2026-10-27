@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>WOS-ポイント計算機</title>
+  
+  <!-- ★1. OGP（Twitterカード）の設定 -->
+  <!-- 以下のURLを、ご自身のGitHub PagesのURLに変更してください -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="WOS-ポイント計算機">
+  <meta property="og:description" content="手持ちのアイテムから、イベントの獲得ポイントをサクッと計算・比較できる便利ツールです。">
+  <meta property="og:url" content="https://★あなたのユーザー名★.github.io/★リポジトリ名★/">
+  <meta property="og:image" content="https://tamachamo.github.io/wos_event_calc/icon-512.png">
+  <meta name="twitter:card" content="summary_large_image">
+  
+  <!-- ★2. アクセス解析 (Google Analytics 4) -->
+  <!-- Google Analyticsで測定ID(G-XXXXXXXXXX)を取得したらコメントアウトを外して設定します -->
+  <!--
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-XXXXXXXXXX');
+  </script>
+  -->
+
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2563eb">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 pb-24">
+  
+  <!-- ヘッダー（単一・比較） -->
+  <div class="sticky top-0 z-50 shadow-lg transition-all">
+    <div id="headerSingle" class="bg-blue-600 text-white p-4 flex flex-col items-center justify-center">
+      <span class="text-sm opacity-80 font-medium">獲得予定ポイント</span>
+      <div class="text-4xl font-bold tracking-tight mt-1">
+        <span id="totalSingle">0</span> <span class="text-lg font-normal">pt</span>
+      </div>
+    </div>
+    <div id="headerCompare" class="hidden flex divide-x divide-gray-700 bg-gray-900 text-white">
+      <div class="flex-1 p-3 flex flex-col items-center justify-center bg-blue-900/80 backdrop-blur">
+        <span id="headerEv1Name" class="text-xs text-blue-200 font-bold mb-1 w-full text-center truncate">イベント1</span>
+        <div class="text-2xl font-bold tracking-tight"><span id="total1">0</span> <span class="text-sm font-normal">pt</span></div>
+      </div>
+      <div class="flex-1 p-3 flex flex-col items-center justify-center bg-teal-900/80 backdrop-blur">
+        <span id="headerEv2Name" class="text-xs text-teal-200 font-bold mb-1 w-full text-center truncate">イベント2</span>
+        <div class="text-2xl font-bold tracking-tight"><span id="total2">0</span> <span class="text-sm font-normal">pt</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="loading" class="p-8 text-center text-gray-500 animate-pulse font-bold">マスターデータを読み込み中...</div>
+
+  <!-- メインコンテンツ -->
+  <div id="app" class="hidden max-w-md mx-auto p-4 mt-2 space-y-4">
+    <!-- モード切り替えタブ -->
+    <div class="flex justify-center bg-white p-1 rounded-lg shadow-sm border border-gray-200">
+      <button id="modeSingleBtn" onclick="switchMode('single')" class="flex-1 py-2 text-sm font-bold rounded-md bg-blue-100 text-blue-700 transition-colors">計算</button>
+      <button id="modeCompareBtn" onclick="switchMode('compare')" class="flex-1 py-2 text-sm font-bold rounded-md text-gray-500 hover:bg-gray-50 transition-colors">比較</button>
+    </div>
+
+    <!-- イベント選択 -->
+    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+      <label id="eventLabel" class="block text-sm font-bold text-gray-700 mb-3">対象イベント</label>
+      <div class="flex gap-3">
+        <div class="flex-1">
+          <select id="event1Select" onchange="onEventChange()" class="w-full p-2 border-2 border-blue-200 rounded-lg bg-blue-50 text-blue-900 font-bold text-sm focus:outline-none focus:border-blue-500 appearance-none"></select>
+        </div>
+        <div id="event2Container" class="flex-1 hidden">
+          <select id="event2Select" onchange="onEventChange()" class="w-full p-2 border-2 border-teal-200 rounded-lg bg-teal-50 text-teal-900 font-bold text-sm focus:outline-none focus:border-teal-500 appearance-none"></select>
+        </div>
+      </div>
+    </div>
+
+    <div id="itemRowsContainer" class="space-y-3"></div>
+
+    <button onclick="addRow()" class="w-full bg-gray-800 hover:bg-gray-700 text-white font-bold py-4 px-4 rounded-xl shadow-md transition-colors flex justify-center items-center gap-2 mt-4">
+      アイテム枠を追加する
+    </button>
+
+    <!-- Xシェアボタン -->
+    <a id="shareXBtn" href="#" target="_blank" class="w-full bg-black hover:bg-gray-800 text-white font-bold py-4 px-4 rounded-xl shadow-md transition-colors flex justify-center items-center gap-2 mt-2">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M12.6.75h2.454l-5.36 6.142L16 15.25h-4.937l-3.867-5.07-4.425 5.07H.316l5.733-6.57L0 .75h5.063l3.495 4.633L12.601.75Zm-.86 13.028h1.36L4.323 2.145H2.865l8.875 11.633Z"/></svg>
+      結果をXでポストする
+    </a>
+
+    <!-- 控えめなインストールボタン -->
+    <div class="text-center mt-6 pb-2">
+      <button id="pwaInstallBtn" class="hidden text-sm text-gray-500 underline hover:text-gray-700 transition-colors">
+        📱 アプリをホーム画面に追加する
+      </button>
+    </div>
+
+    <!-- ★3. フィードバック窓口 -->
+    <!-- Googleフォーム等でアンケートを作り、そのURLをhrefに貼り付けます -->
+    <div class="text-center pb-4">
+      <a href="https://forms.gle/★あなたのフォームURL★" target="_blank" class="text-xs text-blue-500 underline hover:text-blue-700 transition-colors">
+        ご意見・アイテム追加リクエストはこちら
+      </a>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = '/api/master'; // Cloudflare環境の場合はこちら
+    // const GAS_URL = 'https://script.google.com/...'; // GASの場合はここを有効化してfetch先を変更
+
+    let masterData = {};
+    let selectedEvent1 = '';
+    let selectedEvent2 = '';
+    let itemRows = []; 
+    let currentMode = 'single';
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(()=>{});
+      });
+    }
+
+    window.onload = () => {
+      fetch(API_URL) // GASの場合は fetch(GAS_URL) に変更
+        .then(res => res.json())
+        .then(data => initData(data))
+        .catch(err => {
+          document.getElementById('loading').textContent = 'データの取得に失敗しました。';
+        });
+    };
+
+    function initData(data) {
+      masterData = data;
+      const events = Object.keys(data);
+      const ev1Select = document.getElementById('event1Select');
+      const ev2Select = document.getElementById('event2Select');
+      
+      events.forEach(ev => {
+        ev1Select.appendChild(new Option(ev, ev));
+        ev2Select.appendChild(new Option(ev, ev));
+      });
+      ev2Select.appendChild(new Option('比較なし', ''));
+
+      if (events.length > 0) ev1Select.value = events[0];
+      if (events.length > 1) ev2Select.value = events[1];
+
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+      onEventChange(); 
+    }
+
+    function switchMode(mode) {
+      currentMode = mode;
+      const btnSingle = document.getElementById('modeSingleBtn');
+      const btnCompare = document.getElementById('modeCompareBtn');
+      const headerSingle = document.getElementById('headerSingle');
+      const headerCompare = document.getElementById('headerCompare');
+      const event2Container = document.getElementById('event2Container');
+      const eventLabel = document.getElementById('eventLabel');
+
+      if (mode === 'single') {
+        btnSingle.className = 'flex-1 py-2 text-sm font-bold rounded-md bg-blue-100 text-blue-700';
+        btnCompare.className = 'flex-1 py-2 text-sm font-bold rounded-md text-gray-500 hover:bg-gray-50';
+        headerSingle.classList.remove('hidden');
+        headerCompare.classList.add('hidden');
+        event2Container.classList.add('hidden');
+        eventLabel.textContent = '対象イベント';
+      } else {
+        btnSingle.className = 'flex-1 py-2 text-sm font-bold rounded-md text-gray-500 hover:bg-gray-50';
+        btnCompare.className = 'flex-1 py-2 text-sm font-bold rounded-md bg-gray-800 text-white';
+        headerSingle.classList.add('hidden');
+        headerCompare.classList.remove('hidden');
+        event2Container.classList.remove('hidden');
+        eventLabel.textContent = '比較するイベントを選択';
+      }
+      renderRows();
+      calcTotal();
+    }
+
+    function onEventChange() {
+      selectedEvent1 = document.getElementById('event1Select').value;
+      selectedEvent2 = document.getElementById('event2Select').value;
+      document.getElementById('headerEv1Name').textContent = selectedEvent1 || '未選択';
+      document.getElementById('headerEv2Name').textContent = selectedEvent2 || '未選択';
+
+      if (itemRows.length === 0) addRow();
+      else { renderRows(); calcTotal(); }
+    }
+
+    function addRow() {
+      itemRows.push({ id: 'row_' + Date.now() + Math.random(), itemName: '', count: '' });
+      renderRows();
+    }
+
+    function removeRow(rowId) {
+      itemRows = itemRows.filter(row => row.id !== rowId);
+      renderRows();
+      calcTotal();
+    }
+
+    function updateRowItem(rowId, itemName) {
+      const row = itemRows.find(r => r.id === rowId);
+      if (row) { row.itemName = itemName; renderRows(); calcTotal(); }
+    }
+
+    function updateRowCount(rowId, value) {
+      const row = itemRows.find(r => r.id === rowId);
+      if (row) { row.count = value === '' ? '' : Number(value); calcTotal(); }
+    }
+
+    function calcTotal() {
+      let total1 = 0, total2 = 0;
+      itemRows.forEach(row => {
+        if (row.itemName && row.count > 0) {
+          if (selectedEvent1 && masterData[selectedEvent1]) {
+            const i1 = masterData[selectedEvent1].find(i => i.name === row.itemName);
+            if (i1) total1 += i1.point * row.count;
+          }
+          if (currentMode === 'compare' && selectedEvent2 && masterData[selectedEvent2]) {
+            const i2 = masterData[selectedEvent2].find(i => i.name === row.itemName);
+            if (i2) total2 += i2.point * row.count;
+          }
+        }
+      });
+      
+      // 画面の更新
+      document.getElementById('totalSingle').textContent = total1.toLocaleString();
+      document.getElementById('total1').textContent = total1.toLocaleString();
+      document.getElementById('total2').textContent = total2.toLocaleString();
+
+      // 【追加】Xシェアボタンのテキストを動的に更新
+      updateShareButton(total1, total2);
+    }
+
+    function updateShareButton(t1, t2) {
+      const shareBtn = document.getElementById('shareXBtn');
+      let text = '';
+      
+      if (currentMode === 'single') {
+        const ev = selectedEvent1 || 'イベント';
+        text = `ホワサバの「${ev}」で、獲得見込みは【 ${t1.toLocaleString()} pt 】です！\n\n`;
+      } else {
+        const ev1 = selectedEvent1 || 'イベント1';
+        const ev2 = selectedEvent2 || 'イベント2';
+        text = `ホワサバのポイント比較！\n❄️${ev1}：${t1.toLocaleString()} pt\n❄️${ev2}：${t2.toLocaleString()} pt\n\n`;
+      }
+      
+      const pageUrl = window.location.href;
+      shareBtn.href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(pageUrl)}&hashtags=ホワサバ,ホワサバ計算機`;
+    }
+
+    function renderRows() {
+      const container = document.getElementById('itemRowsContainer');
+      container.innerHTML = '';
+
+      let validItemsSet = new Set();
+      if (selectedEvent1 && masterData[selectedEvent1]) masterData[selectedEvent1].forEach(i => validItemsSet.add(i.name));
+      if (currentMode === 'compare' && selectedEvent2 && masterData[selectedEvent2]) masterData[selectedEvent2].forEach(i => validItemsSet.add(i.name));
+      const validItems = Array.from(validItemsSet);
+
+      itemRows.forEach(row => {
+        let ev1Item = selectedEvent1 ? masterData[selectedEvent1]?.find(i => i.name === row.itemName) : null;
+        let ev2Item = selectedEvent2 ? masterData[selectedEvent2]?.find(i => i.name === row.itemName) : null;
+
+        const card = document.createElement('div');
+        card.className = 'bg-white p-3 rounded-xl shadow-sm border border-gray-200 relative pt-8';
+        
+        const deleteBtn = document.createElement('button');
+        deleteBtn.innerHTML = '✕';
+        deleteBtn.className = 'absolute top-2 right-2 text-gray-400 hover:text-red-500 font-bold p-2 leading-none';
+        deleteBtn.onclick = () => removeRow(row.id);
+        card.appendChild(deleteBtn);
+
+        const inputArea = document.createElement('div');
+        inputArea.className = 'flex gap-2 mb-3';
+
+        const select = document.createElement('select');
+        select.className = 'flex-1 p-2 border border-gray-300 rounded-lg bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none font-bold text-gray-800';
+        select.onchange = (e) => updateRowItem(row.id, e.target.value);
+        select.innerHTML = '<option value="">アイテムを選択</option>';
+        
+        let rowOptions = [...validItems];
+        if (row.itemName && !rowOptions.includes(row.itemName)) rowOptions.push(row.itemName);
+
+        rowOptions.forEach(itemName => {
+          const option = document.createElement('option');
+          option.value = itemName;
+          option.textContent = (row.itemName === itemName && !validItems.includes(itemName)) ? itemName + ' (対象外)' : itemName;
+          if (row.itemName === itemName) option.selected = true;
+          select.appendChild(option);
+        });
+
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.min = '0';
+        input.inputMode = 'numeric';
+        input.placeholder = '数量';
+        input.value = row.count;
+        input.className = 'w-24 p-2 text-base border border-gray-300 rounded-lg text-right bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold';
+        input.oninput = (e) => updateRowCount(row.id, e.target.value);
+
+        inputArea.appendChild(select);
+        inputArea.appendChild(input);
+        card.appendChild(inputArea);
+
+        if (currentMode === 'single') {
+          const singleArea = document.createElement('div');
+          singleArea.className = 'flex justify-between items-center bg-blue-50/50 p-2 rounded-lg border border-blue-100';
+          if (row.itemName && !ev1Item) {
+            singleArea.innerHTML = `<span class="text-sm font-bold text-gray-400">対象外</span>`;
+          } else {
+            const subtotal = ev1Item && row.count ? (ev1Item.point * row.count).toLocaleString() : '0';
+            const unit = ev1Item ? ev1Item.point.toLocaleString() : '-';
+            singleArea.innerHTML = `<span class="text-sm text-blue-600">単価: ${unit}</span><div class="text-lg font-bold text-blue-700">${subtotal} <span class="text-xs font-normal">pt</span></div>`;
+          }
+          card.appendChild(singleArea);
+        } else {
+          const compArea = document.createElement('div');
+          compArea.className = 'flex rounded-lg overflow-hidden border border-gray-200';
+
+          const leftBox = document.createElement('div');
+          leftBox.className = 'flex-1 bg-blue-50 p-2 border-r border-gray-200 flex flex-col justify-center';
+          if (row.itemName && !ev1Item) {
+            leftBox.innerHTML = `<div class="text-xs text-blue-800/50 font-bold mb-1 truncate">${selectedEvent1 || '-'}</div><div class="text-sm font-bold text-gray-400">対象外</div>`;
+          } else {
+            const subtotal = ev1Item && row.count ? (ev1Item.point * row.count).toLocaleString() : '0';
+            const unit = ev1Item ? ev1Item.point.toLocaleString() : '-';
+            leftBox.innerHTML = `<div class="text-xs text-blue-800 font-bold mb-1 truncate">${selectedEvent1 || '-'}</div><div class="text-base font-bold text-blue-700">${subtotal} <span class="text-xs font-normal">pt</span></div><div class="text-[10px] text-blue-500 mt-1">単価: ${unit}</div>`;
+          }
+
+          const rightBox = document.createElement('div');
+          rightBox.className = 'flex-1 bg-teal-50 p-2 flex flex-col justify-center';
+          if (row.itemName && !ev2Item) {
+            rightBox.innerHTML = `<div class="text-xs text-teal-800/50 font-bold mb-1 truncate">${selectedEvent2 || '-'}</div><div class="text-sm font-bold text-gray-400">対象外</div>`;
+          } else {
+            const subtotal = ev2Item && row.count ? (ev2Item.point * row.count).toLocaleString() : '0';
+            const unit = ev2Item ? ev2Item.point.toLocaleString() : '-';
+            rightBox.innerHTML = `<div class="text-xs text-teal-800 font-bold mb-1 truncate">${selectedEvent2 || '-'}</div><div class="text-base font-bold text-teal-700">${subtotal} <span class="text-xs font-normal">pt</span></div><div class="text-[10px] text-teal-500 mt-1">単価: ${unit}</div>`;
+          }
+
+          compArea.appendChild(leftBox);
+          compArea.appendChild(rightBox);
+          card.appendChild(compArea);
+        }
+        container.appendChild(card);
+      });
+    }
+
+    // --- インストールボタンの制御 ---
+    const pwaInstallBtn = document.getElementById('pwaInstallBtn');
+    let deferredPrompt;
+
+    const isInStandaloneMode = () => ('standalone' in window.navigator) && (window.navigator.standalone) || window.matchMedia('(display-mode: standalone)').matches;
+    const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+
+    if (!isInStandaloneMode()) {
+      if (isIos()) {
+        pwaInstallBtn.classList.remove('hidden');
+        pwaInstallBtn.addEventListener('click', () => {
+          alert('【iPhoneでの追加方法】\n画面下部の「共有[↑]」ボタンをタップし、「ホーム画面に追加」を選択してください。');
+        });
+      } else {
+        window.addEventListener('beforeinstallprompt', (e) => {
+          e.preventDefault();
+          deferredPrompt = e;
+          pwaInstallBtn.classList.remove('hidden');
+        });
+
+        pwaInstallBtn.addEventListener('click', async () => {
+          if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            deferredPrompt = null;
+            pwaInstallBtn.classList.add('hidden');
+          }
+        });
+      }
+    }
+  </script>
+</body>
+</html>
