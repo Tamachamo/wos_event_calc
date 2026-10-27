@@ -1,8 +1,8 @@
-name = "whitesurvival-calc"
+name = "wos-ecent-calc"
 pages_build_output_dir = "."
 compatibility_date = "2024-02-27"
 
 [[d1_databases]]
 binding = "DB" # master.jsの env.DB と一致させます
-database_name = "whitesurvival-db"
-database_id = "1でメモした database_id をここに貼り付け"
+database_name = "wos-pointlist"
+database_id = "a5e3e06e-9a7b-4083-a304-1d8387e4e58f"
