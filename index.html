@@ -107,15 +107,18 @@
     </div>
   </div>
 
-  <script>
-    const API_URL = '/api/master'; // Cloudflare環境の場合はこちら
-    // const GAS_URL = 'https://script.google.com/...'; // GASの場合はここを有効化してfetch先を変更
+<script>
+    const API_URL = '/api/master'; 
+    // const GAS_URL = 'https://script.google.com/...';
 
     let masterData = {};
     let selectedEvent1 = '';
     let selectedEvent2 = '';
     let itemRows = []; 
     let currentMode = 'single';
+    // 現在の合計ポイントを保持する変数を追加
+    let currentTotal1 = 0;
+    let currentTotal2 = 0;
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -124,12 +127,15 @@
     }
 
     window.onload = () => {
-      fetch(API_URL) // GASの場合は fetch(GAS_URL) に変更
+      fetch(API_URL) 
         .then(res => res.json())
         .then(data => initData(data))
         .catch(err => {
           document.getElementById('loading').textContent = 'データの取得に失敗しました。';
         });
+
+      // 【追加】Xシェアボタンのクリックイベントを設定
+      document.getElementById('shareXBtn').addEventListener('click', handleShareClick);
     };
 
     function initData(data) {
@@ -226,30 +232,40 @@
         }
       });
       
+      // グローバル変数に最新の合計値を保存
+      currentTotal1 = total1;
+      currentTotal2 = total2;
+
       // 画面の更新
       document.getElementById('totalSingle').textContent = total1.toLocaleString();
       document.getElementById('total1').textContent = total1.toLocaleString();
       document.getElementById('total2').textContent = total2.toLocaleString();
-
-      // 【追加】Xシェアボタンのテキストを動的に更新
-      updateShareButton(total1, total2);
     }
 
-    function updateShareButton(t1, t2) {
-      const shareBtn = document.getElementById('shareXBtn');
+    // 【追加・修正】シェアボタンが押された時の処理
+    function handleShareClick(e) {
+      e.preventDefault(); // href="#"などによる不要なページ遷移やURLハッシュ付与を防ぐ
+
+      if (currentTotal1 === 0 && (currentMode === 'single' || currentTotal2 === 0)) {
+        alert("アイテムを追加してポイントを計算してから共有してください。");
+        return; // ポイントが0の場合はここで処理を止め、別タブを開かせない
+      }
+
       let text = '';
-      
       if (currentMode === 'single') {
         const ev = selectedEvent1 || 'イベント';
-        text = `ホワサバの「${ev}」で、獲得見込みは【 ${t1.toLocaleString()} pt 】です！\n\n`;
+        text = `ホワサバの「${ev}」で、獲得見込みは【 ${currentTotal1.toLocaleString()} pt 】です！\n\n`;
       } else {
         const ev1 = selectedEvent1 || 'イベント1';
         const ev2 = selectedEvent2 || 'イベント2';
-        text = `ホワサバのポイント比較！\n❄️${ev1}：${t1.toLocaleString()} pt\n❄️${ev2}：${t2.toLocaleString()} pt\n\n`;
+        text = `ホワサバのポイント比較！\n❄️${ev1}：${currentTotal1.toLocaleString()} pt\n❄️${ev2}：${currentTotal2.toLocaleString()} pt\n\n`;
       }
       
-      const pageUrl = window.location.href;
-      shareBtn.href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(pageUrl)}&hashtags=ホワサバ,ホワサバ計算機`;
+      // ?sum等が混ざらないよう、固定の正しいURLを指定
+      const cleanUrl = "https://wos-event-calc.pages.dev/";
+      const twitterIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(cleanUrl)}&hashtags=ホワサバ,ホワサバ計算機`;
+      
+      window.open(twitterIntentUrl, '_blank');
     }
 
     function renderRows() {
