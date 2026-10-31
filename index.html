@@ -220,23 +220,35 @@
     function calcTotal() {
       let total1 = 0, total2 = 0;
       itemRows.forEach(row => {
+        let rowSub1 = 0;
+        let rowSub2 = 0;
+
         if (row.itemName && row.count > 0) {
           if (selectedEvent1 && masterData[selectedEvent1]) {
             const i1 = masterData[selectedEvent1].find(i => i.name === row.itemName);
-            if (i1) total1 += i1.point * row.count;
+            if (i1) rowSub1 = i1.point * row.count;
           }
           if (currentMode === 'compare' && selectedEvent2 && masterData[selectedEvent2]) {
             const i2 = masterData[selectedEvent2].find(i => i.name === row.itemName);
-            if (i2) total2 += i2.point * row.count;
+            if (i2) rowSub2 = i2.point * row.count;
           }
         }
+        total1 += rowSub1;
+        total2 += rowSub2;
+
+        // 【追加】各アイテム行の小計ポイントを即座に更新する
+        const elSub1 = document.getElementById(`subtotal_1_${row.id}`);
+        if (elSub1) elSub1.textContent = rowSub1.toLocaleString();
+
+        const elSub2 = document.getElementById(`subtotal_2_${row.id}`);
+        if (elSub2) elSub2.textContent = rowSub2.toLocaleString();
       });
       
       // グローバル変数に最新の合計値を保存
       currentTotal1 = total1;
       currentTotal2 = total2;
 
-      // 画面の更新
+      // 画面（全体合計）の更新
       document.getElementById('totalSingle').textContent = total1.toLocaleString();
       document.getElementById('total1').textContent = total1.toLocaleString();
       document.getElementById('total2').textContent = total2.toLocaleString();
@@ -268,7 +280,7 @@
       window.open(twitterIntentUrl, '_blank');
     }
 
-    function renderRows() {
+function renderRows() {
       const container = document.getElementById('itemRowsContainer');
       container.innerHTML = '';
 
@@ -330,7 +342,8 @@
           } else {
             const subtotal = ev1Item && row.count ? (ev1Item.point * row.count).toLocaleString() : '0';
             const unit = ev1Item ? ev1Item.point.toLocaleString() : '-';
-            singleArea.innerHTML = `<span class="text-sm text-blue-600">単価: ${unit}</span><div class="text-lg font-bold text-blue-700">${subtotal} <span class="text-xs font-normal">pt</span></div>`;
+            // 【変更】ポイント数字部分にIDを付与
+            singleArea.innerHTML = `<span class="text-sm text-blue-600">単価: ${unit}</span><div class="text-lg font-bold text-blue-700"><span id="subtotal_1_${row.id}">${subtotal}</span> <span class="text-xs font-normal">pt</span></div>`;
           }
           card.appendChild(singleArea);
         } else {
@@ -344,7 +357,8 @@
           } else {
             const subtotal = ev1Item && row.count ? (ev1Item.point * row.count).toLocaleString() : '0';
             const unit = ev1Item ? ev1Item.point.toLocaleString() : '-';
-            leftBox.innerHTML = `<div class="text-xs text-blue-800 font-bold mb-1 truncate">${selectedEvent1 || '-'}</div><div class="text-base font-bold text-blue-700">${subtotal} <span class="text-xs font-normal">pt</span></div><div class="text-[10px] text-blue-500 mt-1">単価: ${unit}</div>`;
+            // 【変更】ポイント数字部分にIDを付与
+            leftBox.innerHTML = `<div class="text-xs text-blue-800 font-bold mb-1 truncate">${selectedEvent1 || '-'}</div><div class="text-base font-bold text-blue-700"><span id="subtotal_1_${row.id}">${subtotal}</span> <span class="text-xs font-normal">pt</span></div><div class="text-[10px] text-blue-500 mt-1">単価: ${unit}</div>`;
           }
 
           const rightBox = document.createElement('div');
@@ -354,7 +368,8 @@
           } else {
             const subtotal = ev2Item && row.count ? (ev2Item.point * row.count).toLocaleString() : '0';
             const unit = ev2Item ? ev2Item.point.toLocaleString() : '-';
-            rightBox.innerHTML = `<div class="text-xs text-teal-800 font-bold mb-1 truncate">${selectedEvent2 || '-'}</div><div class="text-base font-bold text-teal-700">${subtotal} <span class="text-xs font-normal">pt</span></div><div class="text-[10px] text-teal-500 mt-1">単価: ${unit}</div>`;
+            // 【変更】ポイント数字部分にIDを付与
+            rightBox.innerHTML = `<div class="text-xs text-teal-800 font-bold mb-1 truncate">${selectedEvent2 || '-'}</div><div class="text-base font-bold text-teal-700"><span id="subtotal_2_${row.id}">${subtotal}</span> <span class="text-xs font-normal">pt</span></div><div class="text-[10px] text-teal-500 mt-1">単価: ${unit}</div>`;
           }
 
           compArea.appendChild(leftBox);
